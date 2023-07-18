@@ -1,0 +1,88 @@
+---
+- name: Install Node Exporter
+  hosts: all
+  become: true
+  become_user: root
+
+  tasks:
+    - name: Download Node Exporter for Amazon Linux
+      get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{ node_exporter_arch }}.tar.gz"
+        dest: /tmp
+      when: "'amazon_linux_.*' in group_names"
+
+    - name: Download Node Exporter for Ubuntu
+      get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"  
+        dest: /tmp
+      when: "'ubuntu' in group_names"
+
+    - name: Unarchive Node Exporter
+      unarchive:
+        remote_src: yes
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_arch }}.tar.gz"
+        dest: /tmp
+      
+    - name: Move Node Exporter to /usr/local/bin for ubuntu
+      copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_arch }}/node_exporter"
+        dest: /usr/local/bin/node_exporter
+        remote_src: yes
+        owner: root
+        group: root
+        mode: 0755
+      when: "'ubuntu' in group_names"
+
+    - name: Move Node Exporter to /usr/local/bin for Amazon Linux 2
+      copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_arch }}/node_exporter"
+        dest: /usr/local/bin/node_exporter
+        remote_src: yes
+        owner: root
+        group: root
+        mode: 0755
+      when: "'amazon_linux_..._2' in group_names"
+      
+    - name: Move Node Exporter to /usr/sbin/node_exporter for Amazon Linux 1
+      copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_arch }}/node_exporter"
+        dest: /usr/sbin/node_exporter
+        remote_src: yes
+        owner: root
+        group: root
+        mode: 0755
+      when: "'amazon_linux_..._below_2' in group_names"
+
+    - name: Install service file for Amazon Linux 2
+      template:
+        src: "templates/node_exporter_service_v2.service"
+        dest: "/etc/systemd/system/node_exporter.service"
+        owner: root
+        group: root
+        mode: 0644
+      when: "'amazon_linux_..._2' in group_names"
+
+    - name: Install service file for Amazon Linux 1
+      template:
+        src: "templates/node_exporter_service_v1.service"
+        dest: 
+        owner: root
+        group: root
+        mode: 0644
+      when: "'amazon_linux_..._below_2' in group_names"
+
+    - name: Install service file for Ubuntu
+      template:
+        src: "templates/node_exporter_service_v2.service"
+        dest: "/etc/systemd/system/node_exporter.service"
+        owner: root
+        group: root
+        mode: 0644
+      when: "'ubuntu' in group_names"
+
+    - name: Configure systemd to use service
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: started
+        name: node_exporter.service
