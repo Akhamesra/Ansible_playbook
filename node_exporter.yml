@@ -1,0 +1,3 @@
+- import_playbook: node_exporter_AL1.yml
+- import_playbook: node_exporter_AL2.yml
+- import_playbook: node_exporter_ubuntu.yml
