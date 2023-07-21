@@ -1,0 +1,6 @@
+node_exporter_version: 1.6.0
+node_exporter_arch: linux-arm64
+node_exporter_service_template: node_exporter_service_v1.service
+node_exporter_binary_dest: /usr/sbin/node_exporter
+node_exporter_service_source: templates/node_exporter_service_v1.service
+node_exporter_service_dest: /etc/init.d/node_exporter.service
