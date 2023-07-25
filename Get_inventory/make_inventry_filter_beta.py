@@ -33,22 +33,43 @@ def get_ec2_all_instance_information():
 
 def get_inventory(ssm_all_instance_data,ec2_all_instance_data):
     os_info = {}
-
     for reservation in ec2_all_instance_data:
         for instance in reservation['Instances']:
-            instance_id = instance['InstanceId']
-            architecture = instance['Architecture']
-            os_info[instance_id] = {'Architecture':architecture}
+            try:
+                instance_id = instance['InstanceId']
+                architecture = instance['Architecture']
+                tags = instance['Tags']
+                name = ""
+                lob = ""
+                for tag in tags:
+                    if tag['Key'] == 'Name':
+                        name= tag['Value']
+                    elif tag['Key'] == 'LOB':
+                        lob= tag['Value']
+                os_info[instance_id] = {'Architecture':architecture,
+                                        'Name':name,
+                                        'LOB':lob}
+            except Exception as e:
+                print(f"ERROR in ec2.client for instance - {instance} - {e} ")
 
     for instance_info in ssm_all_instance_data:
         instance_id = instance_info['InstanceId']
         if instance_id in os_info.keys():
-            instance_ip = instance_info['IPAddress']
-            os_name = instance_info['PlatformName']
-            platversion = instance_info['PlatformVersion']
-            os_info[instance_id]['instance_ip']=instance_ip
-            os_info[instance_id]['OSName']=os_name
-            os_info[instance_id]['platversion']=platversion
+            try:
+                instance_ip = instance_info['IPAddress']
+                try:
+                    os_name = instance_info['PlatformName']
+                except:
+                    os_name = instance_info['PlatformType']
+                try:
+                    platversion = instance_info['PlatformVersion']
+                except:
+                    platversion = "NOT_FOUND"
+                os_info[instance_id]['instance_ip']=instance_ip
+                os_info[instance_id]['OSName']=os_name
+                os_info[instance_id]['platversion']=platversion
+            except Exception as e:
+                print(f"ERROR in ssm.client for instance - {instance} - {e} ")
 
     return os_info
 
@@ -60,33 +81,42 @@ def group_inventory(os_info):
                   'linux_arm' : [],
                   'linux_amd' : [],
                   'windows' : []}
-    
     for info in os_info.values():
-        ip = info['instance_ip']
-        os_name = info['OSName']
-        platversion = info['platversion']
-        arch = 'AMD' if 'x86_64' in info['Architecture'] else 'ARM'
+        name = ""
+        lob = ""
+        try:
+            arch = 'AMD' if 'x86_64' in info['Architecture'] else 'ARM'
+            try:
+                ip = info['instance_ip']
+            except:
+                print("Excluding")
+                continue
+            os_name = info['OSName']
+            platversion = info['platversion']
+            name = info['Name']
+            lob = info['LOB']
+        except Exception as e:
+            print(f"##### group_inventory - WARNING - {e} - {info}")
 
         if 'Amazon Linux' in os_name:
             if arch == 'AMD':
                 if platversion in ['2023','2']:
-                    instance_os_type['amazon_linux_amd_2'].append(ip)
+                    instance_os_type['amazon_linux_amd_2'].append(ip+"     #"+name+" LOB - "+lob)
                 else:
-                    instance_os_type['amazon_linux_amd_below_2'].append(ip)
+                    instance_os_type['amazon_linux_amd_below_2'].append(ip+"     #"+name+" LOB - "+lob)
             else:
                 if platversion in ['2023','2']:
-                    instance_os_type['amazon_linux_arm_2'].append(ip)
+                    instance_os_type['amazon_linux_arm_2'].append(ip+"     #"+name+" LOB - "+lob)
                 else:
-                    instance_os_type['amazon_linux_arm_below_2'].append(ip)
+                    instance_os_type['amazon_linux_arm_below_2'].append(ip+"     #"+name+" LOB - "+lob)
         elif 'Windows' in os_name:
-            instance_os_type['amazon_linux_arm_below_2'].append(ip)
+            instance_os_type['windows'].append(ip+"     #"+name+" LOB - "+lob)
 
         else:
             if arch == 'AMD':
-                instance_os_type['linux_amd'].append(ip)
+                instance_os_type['linux_amd'].append(ip+"     #"+name+" LOB - "+lob)
             else:
-                instance_os_type['linux_arm'].append(ip)
-    
+                instance_os_type['linux_arm'].append(ip+"     #"+name+" LOB - "+lob)
     return instance_os_type
 
 def save_inventory(instance_os_type):
@@ -100,6 +130,7 @@ def save_inventory(instance_os_type):
             f.write(f"#{len(ips)}")
             f.write("\n")
         f.write(f"#TOTAL IPS : {count}")
+
 
 ssm_all_instance_data = get_ssm_all_instance_information()
 ec2_all_instance_data= get_ec2_all_instance_information()

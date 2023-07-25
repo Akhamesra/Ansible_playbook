@@ -89,7 +89,7 @@ def group_inventory(os_info):
                 else:
                     instance_os_type['amazon_linux_arm_below_2'].append(ip)
         elif 'Windows' in os_name:
-            instance_os_type['amazon_linux_arm_below_2'].append(ip)
+            instance_os_type['windows'].append(ip)
 
         else:
             if arch == 'AMD':
